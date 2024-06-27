@@ -23,7 +23,7 @@ from typing import Any, List, Optional, Set, Tuple, Dict
 from git import InvalidGitRepositoryError, Repo
 
 LOGGER_NAME = "intercode"
-START_UP_DELAY = 5
+START_UP_DELAY = 0
 TIMEOUT_DURATION = 25
 GITHUB_ISSUE_URL_PATTERN = re.compile(r'github\.com\/(.*?)\/(.*?)\/issues\/(\d+)')
 GITHUB_REPO_URL_PATTERN = re.compile(r'.*[/@]?github\.com\/([^/]+)\/([^/]+)')
@@ -80,18 +80,22 @@ def copy_file_to_container(container, contents, container_path):
             temp_file.flush()
             os.fsync(temp_file.fileno())
 
-        # Create a TAR archive in memory containing the temporary file
-        with tempfile.NamedTemporaryFile():
-            with open(temp_file_name, 'rb') as temp_file:
-                # Prepare the TAR archive
-                with BytesIO() as tar_stream:
-                    with tarfile.open(fileobj=tar_stream, mode='w') as tar:
-                        tar_info = tarfile.TarInfo(name=os.path.basename(container_path))
-                        tar_info.size = os.path.getsize(temp_file_name)
-                        tar.addfile(tarinfo=tar_info, fileobj=temp_file)
-                    tar_stream.seek(0)
-                    # Copy the TAR stream to the container
-                    container.put_archive(path=os.path.dirname(container_path), data=tar_stream.read())
+        if container is None:
+            copy_anything_to_container(container, temp_file_name, container_path)
+
+        else:
+            # Create a TAR archive in memory containing the temporary file
+            with tempfile.NamedTemporaryFile():
+                with open(temp_file_name, 'rb') as temp_file:
+                    # Prepare the TAR archive
+                    with BytesIO() as tar_stream:
+                        with tarfile.open(fileobj=tar_stream, mode='w') as tar:
+                            tar_info = tarfile.TarInfo(name=os.path.basename(container_path))
+                            tar_info.size = os.path.getsize(temp_file_name)
+                            tar.addfile(tarinfo=tar_info, fileobj=temp_file)
+                        tar_stream.seek(0)
+                        # Copy the TAR stream to the container
+                        container.put_archive(path=os.path.dirname(container_path), data=tar_stream.read())
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")
@@ -110,7 +114,11 @@ def copy_anything_to_container(container, host_path: str, container_path: str) -
     if not Path(host_path).exists():
         msg = f"Path {host_path} does not exist, cannot copy it to container."
         raise FileNotFoundError(msg)
-    cmd = ["docker", "cp", host_path, f"{container.id}:{container_path}"]
+
+    if container is None:
+        cmd = ["cp", "-r", host_path, container_path]
+    else:
+        cmd = ["docker", "cp", host_path, f"{container.id}:{container_path}"]
     logger.debug(f"Copying {host_path} to container at {container_path} with command: {shlex.join(cmd)}")
     try:
         subprocess.run(cmd, check=True)
@@ -332,6 +340,29 @@ def _get_persistent_container(ctr_name: str, image_name: str, persistent: bool =
     return container, set(map(str, [bash_pid, 1, ]))
 
 
+def _get_non_docker_container() -> Tuple[subprocess.Popen, Set]:
+    startup_cmd = [
+        "/bin/bash",
+        "-l",
+        "-m",
+    ]
+    logger.debug(f"Starting container with command: %s", shlex.join(startup_cmd))
+    container = subprocess.Popen(
+        startup_cmd,
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=STDOUT,
+        text=True,
+        bufsize=1, # line buffered
+    )
+    time.sleep(START_UP_DELAY)
+    # try to read output from container setup (usually an error), timeout if no output
+    output = read_with_timeout(container, lambda: list(), timeout_duration=2)
+    if output:
+        logger.error(f"Unexpected container setup output: {output}")
+    return container, {str(container.pid), } # bash PID is always 1 for non-persistent containers
+
+
 def get_container(ctr_name: str, image_name: str, persistent: bool = False) -> Tuple[subprocess.Popen, Set]:
     """
     Get a container object for a given container name and image name
@@ -343,6 +374,9 @@ def get_container(ctr_name: str, image_name: str, persistent: bool = False) -> T
     Returns:
         Container object
     """
+    if image_name == "none":
+        return _get_non_docker_container()
+
     # Let's first check that the image exists and give some better error messages
     try:
         client = docker.from_env()

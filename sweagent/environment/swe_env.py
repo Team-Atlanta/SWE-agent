@@ -262,7 +262,7 @@ class SWEEnv(gym.Env):
 
         system = self.communicate("uname -s").strip().lower()
         arch = self.communicate("uname -m").strip().lower()
-        if system == 'linux' and arch == 'x86_64':
+        if self.container_obj is not None and system == 'linux' and arch == 'x86_64':
             self.communicate_with_handling(
                 f"apt update; apt install build-essential -y",
                 error_msg="Failed to install build-essential",
@@ -273,20 +273,18 @@ class SWEEnv(gym.Env):
         if self.install_environment:
             self.install_env()
         # Install mypy for linting purposes
-        self.communicate_with_handling(
-            f"pip install flake8",
-            error_msg="Failed to install flake8 (lint library)"
-        )
+        if self.container_obj is not None:
+            self.communicate_with_handling(
+                f"pip install flake8",
+                error_msg="Failed to install flake8 (lint library)"
+            )
 
         # Apply test patch for oracle setting
         if apply_test_patch:
             path_to_patch = "test.patch"
             with open(path_to_patch, "w") as f:
                 f.write(self.record["test_patch"])
-            subprocess.run(
-                f"docker cp {path_to_patch} {self.container_name}:/root/test.patch",
-                shell=True,
-            )
+            copy_anything_to_container(self.container_obj, path_to_patch, "/root/test.patch")
             self.communicate_with_handling(
                 input="git apply /root/test.patch",
                 error_msg="Failed to apply test patch correctly"
@@ -387,9 +385,10 @@ class SWEEnv(gym.Env):
         except:
             pass
         assert self.container is not None
-        assert self.container_obj is not None
         self.container.terminate()
-        if self.persistent:
+        if self.container_obj is None:
+            self.logger.info("Host environment: nothing to do")
+        elif self.persistent:
             if self.container_obj.status not in {"paused", "exited"}:
                 self.container_obj.pause()
                 self.logger.info("Agent container paused")
@@ -442,6 +441,12 @@ class SWEEnv(gym.Env):
         self.container, self.parent_pids = get_container(
             self.container_name, self.image_name, persistent=self.persistent
         )
+
+        if self.image_name == "none":
+            self.container_obj = None
+            self.logger.info("Using Host Environment")
+            return
+
         try:
             client = docker.from_env()
         except docker.errors.DockerException as e:
@@ -596,6 +601,9 @@ class SWEEnv(gym.Env):
         """
         Gets list of processes running inside docker container
         """
+        if self.image_name == "none":
+            return list()
+
         pids = (
             self.container_obj.exec_run("ps -eo pid,comm --no-headers")
             .output.decode()

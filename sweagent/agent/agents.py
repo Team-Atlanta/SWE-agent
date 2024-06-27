@@ -792,15 +792,19 @@ class Agent:
         Return the final value of the specified return type.
         """
         done = False
-        assert env.container_obj is not None
         assert self.config is not None  # mypy
 
-        if env.container_obj.id != self.last_container_id:
+        if env.container_obj is None:
+            container_id = "host"
+        else:
+            container_id = env.container_obj.id
+
+        if container_id != self.last_container_id:
             logger.info(
-                f"Initializing agent settings for container {env.container_obj.id}"
+                f"Initializing agent settings for container {container_id}"
             )
             self.init_environment_vars(env)
-            self.last_container_id = env.container_obj.id
+            self.last_container_id = container_id
         # Re-initialize primary
         self.setup(setup_args, init_model_stats)
 
