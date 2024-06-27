@@ -32,7 +32,7 @@ instance_template: |-
   {issue}
 
   INSTRUCTIONS:
-  Now, you're going to solve this issue on your own. Your terminal session has started and you're in the repository's root directory. You can use any bash commands or the special interface to help you. Edit all the files you need to and run any checks or tests that you want. 
+  Now, you're going to solve this issue on your own. Your terminal session has started and you're in the repository's root directory. You can use any bash commands or the special interface to help you. Edit all the files you need to fix the vulnerability. 
   Remember, YOU CAN ONLY ENTER ONE COMMAND AT A TIME. You should always wait for feedback after every command. 
   When you're satisfied with all of the changes you've made, you can submit your changes to the code base by simply running the submit command.
   Note however that you cannot use any interactive session commands (e.g. python, vim) in this environment, but you can write scripts and run them. E.g. you can write a python script and then run it with `python <script_name>.py`.
@@ -40,13 +40,7 @@ instance_template: |-
   NOTE ABOUT THE EDIT COMMAND: Indentation really matters! When editing a file, make sure to insert appropriate indentation before each line! 
 
   IMPORTANT TIPS:
-  1. Always start by trying to replicate the bug that the issues discusses. 
-     If the issue includes code for reproducing the bug, we recommend that you re-implement that in your environment, and run it to make sure you can reproduce the bug.
-     Then start trying to fix it.
-     When you think you've fixed the bug, re-run the bug reproduction script to make sure that the bug has indeed been fixed.
-     
-     If the bug reproduction script does not print anything when it successfully runs, we recommend adding a print("Script completed successfully, no errors.") command at the end of the file,
-     so that you can be sure that the script indeed ran fine all the way through. 
+  1. You may *NOT* be able to compile codes and run fixed version.
 
   2. If you run a command and it doesn't work, try running a different command. A command that did not work once will not work the second time unless you modify it!
 
