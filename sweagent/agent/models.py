@@ -169,57 +169,59 @@ class BaseModel:
 
 class OpenAIModel(BaseModel):
     MODELS = {
-        "gpt-3.5-turbo-0125": {
+        "oai-gpt-3.5-turbo": {
             "max_context": 16_385,
             "cost_per_input_token": 5e-07,
             "cost_per_output_token": 1.5e-06,
         },
-        "gpt-3.5-turbo-1106": {
-            "max_context": 16_385,
-            "cost_per_input_token": 1.5e-06,
-            "cost_per_output_token": 2e-06,
-        },
-        "gpt-3.5-turbo-16k-0613": {
-            "max_context": 16_385,
-            "cost_per_input_token": 1.5e-06,
-            "cost_per_output_token": 2e-06,
-        },
-        "gpt-4-32k-0613": {
-            "max_context": 32_768,
-            "cost_per_input_token": 6e-05,
-            "cost_per_output_token": 0.00012,
-        },
-        "gpt-4-0613": {
-            "max_context": 8_192,
-            "cost_per_input_token": 3e-05,
-            "cost_per_output_token": 6e-05,
-        },
-        "gpt-4-1106-preview": {
+        "oai-gpt-4": {
             "max_context": 128_000,
             "cost_per_input_token": 1e-05,
             "cost_per_output_token": 3e-05,
         },
-        "gpt-4-0125-preview": {
+        "oai-gpt-4-turbo": {
             "max_context": 128_000,
             "cost_per_input_token": 1e-05,
             "cost_per_output_token": 3e-05,
         },
-        "gpt-4-turbo-2024-04-09": {
+        "oai-gpt-4o": {
             "max_context": 128_000,
-            "cost_per_input_token": 1e-05,
-            "cost_per_output_token": 3e-05,
+            "cost_per_input_token": 5e-06,
+            "cost_per_output_token": 15e-06,
         },
+        "claude-3-opus": {
+            "max_context": 200_000,
+            "max_tokens": 4096,  # Max tokens to generate for Claude 3 models
+            "cost_per_input_token": 1.5e-05,
+            "cost_per_output_token": 7.5e-05,
+        },
+        "claude-3-sonnet": {
+            "max_context": 200_000,
+            "max_tokens": 4096,
+            "cost_per_input_token": 3e-06,
+            "cost_per_output_token": 1.5e-05,
+        },
+        "claude-3.5-sonnet": {
+            "max_context": 200_000,
+            "max_tokens": 4096,
+            "cost_per_input_token": 3e-06,
+            "cost_per_output_token": 1.5e-05,
+        },
+        "claude-3-haiku": {
+            "max_context": 200_000,
+            "max_tokens": 4096,
+            "cost_per_input_token": 2.5e-07,
+            "cost_per_output_token": 1.25e-06,
+        },
+        "gemini-1.5-pro": {
+            "max_context": 1_000_000,
+            "max_tokens": 8192,
+            "cost_per_input_token": 3.5e-06,
+            "cost_per_output_token": 10.5e-06,
+        }
     }
 
-    SHORTCUTS = {
-        "gpt3": "gpt-3.5-turbo-1106",
-        "gpt3-legacy": "gpt-3.5-turbo-16k-0613",
-        "gpt4": "gpt-4-1106-preview",
-        "gpt4-legacy": "gpt-4-0613",
-        "gpt4-0125": "gpt-4-0125-preview",
-        "gpt3-0125": "gpt-3.5-turbo-0125",
-        "gpt4-turbo": "gpt-4-turbo-2024-04-09",
-    }
+    SHORTCUTS = {}
 
     def __init__(self, args: ModelArguments, commands: list[Command]):
         super().__init__(args, commands)
@@ -842,7 +844,12 @@ def get_model(args: ModelArguments, commands: Optional[list[Command]] = None):
         return HumanThoughtModel(args, commands)
     if args.model_name == "replay":
         return ReplayModel(args, commands)
-    elif args.model_name.startswith("gpt") or args.model_name.startswith("ft:gpt") or args.model_name.startswith("azure:gpt"):
+    elif (
+        args.model_name.startswith("gpt")
+        or args.model_name.startswith("ft:gpt")
+        or args.model_name.startswith("azure:gpt")
+        or args.model_name in OpenAIModel.MODELS
+    ):
         return OpenAIModel(args, commands)
     elif args.model_name.startswith("claude"):
         return AnthropicModel(args, commands)
